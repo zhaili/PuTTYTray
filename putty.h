@@ -882,6 +882,10 @@ void cleanup_exit(int);
     X(INT, NONE, failure_reconnect) \
     X(INT, NONE, wakeup_reconnect) \
     X(INT, NONE, session_storagetype) \
+    X(INT, NONE, tray) \
+    X(INT, NONE, start_tray) \
+    X(INT, NONE, tray_restore) \
+    X(FILENAME, NONE, win_icon) \
     X(INT, NONE, url_ctrl_click) \
     X(INT, NONE, url_underline) \
     X(INT, NONE, url_defbrowser) \
@@ -965,7 +969,7 @@ char *save_settings(char *section, Conf *conf);
 void save_open_settings(void *sesskey, Conf *conf);
 void load_settings(char *section, Conf *conf);
 void load_open_settings(void *sesskey, Conf *conf);
-void get_sesslist(struct sesslist *, int allocate, int storagetype);
+int get_sesslist(struct sesslist *, int allocate, int storagetype);
 void do_defaults(char *, Conf *);
 void registry_cleanup(void);
 
@@ -973,8 +977,8 @@ void registry_cleanup(void);
  * HACK: PuttyTray / PuTTY File
  * Quick hack to load defaults from file
  */
-void do_defaults_file(char *, Config *);
-void load_settings_file(char *section, Config * cfg);
+void do_defaults_file(char *, Conf *);
+void load_settings_file(char *section, Conf *cfg);
 
 /*
  * Functions used by settings.c to provide platform-specific
