@@ -1,5 +1,5 @@
 #ifndef NO_GSSAPI
-
+#define  SECURITY_WIN32 
 #include "putty.h"
 
 #include <security.h>

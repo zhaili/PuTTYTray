@@ -2164,6 +2164,23 @@ void setup_config_box(struct controlbox *b, int midsession,
 			 I(16));
 	    ctrl_text(s, "(Use 1M for 1 megabyte, 1G for 1 gigabyte etc)",
 		      HELPCTX(ssh_kex_repeat));
+// Hinky's obfuscated-openssh options
+		if (!midsession){ 
+			s = ctrl_getset(b, "Connection/SSH/Kex", "none",
+				    "Obfuscation options");
+			ctrl_checkbox(s, "Enable key exchange obfuscation", 'i',
+					 HELPCTX(obfuscate),
+					 dlg_stdcheckbox_handler,
+					 I(offsetof(Config,obfuscate)));
+			c = ctrl_editbox(s, "Keyword (OPTIONAL):", 'r', 100,
+					 HELPCTX(obfuscate_keyword),
+					 dlg_stdeditbox_handler, I(offsetof(Config,obfuscate_keyword)),
+					 I(sizeof(((Config *)0)->obfuscate_keyword)));
+			c->editbox.password = 1;
+			ctrl_text(s, "WARNING: Keyword is stored in clear text!",
+	                 HELPCTX(obfuscate_keyword));
+
+		}
 	}
 
 	if (!midsession) {

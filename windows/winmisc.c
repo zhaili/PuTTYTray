@@ -1,7 +1,7 @@
 /*
  * winmisc.c: miscellaneous Windows-specific things
  */
-
+#define  SECURITY_WIN32 
 #include <stdio.h>
 #include <stdlib.h>
 #include "putty.h"

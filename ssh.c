@@ -12,6 +12,9 @@
 #include "putty.h"
 #include "tree234.h"
 #include "ssh.h"
+// brl-Hinky
+#include "obfuscate.h"
+// end b+h
 #ifndef NO_GSSAPI
 #include "sshgssc.h"
 #include "sshgss.h"
@@ -156,6 +159,10 @@ typedef enum {
 #define SSH2_DISCONNECT_AUTH_CANCELLED_BY_USER    13	/* 0xd */
 #define SSH2_DISCONNECT_NO_MORE_AUTH_METHODS_AVAILABLE 14	/* 0xe */
 #define SSH2_DISCONNECT_ILLEGAL_USER_NAME         15	/* 0xf */
+
+// brl+Hinky
+int oblen;
+extern void *obfuscate_send_seed(void);
 
 static const char *const ssh2_disconnect_reasons[] = {
     NULL,
@@ -781,6 +788,9 @@ struct ssh_tag {
     void *logctx;
 
     unsigned char session_key[32];
+    // brl+hinky
+    int obfuscate;
+	// end b+h
     int v1_compressing;
     int v1_remote_protoflags;
     int v1_local_protoflags;
@@ -1619,8 +1629,29 @@ static int s_write(Ssh ssh, void *data, int len)
     if (ssh->logctx)
 	log_packet(ssh->logctx, PKT_OUTGOING, -1, NULL, data, len,
 		   0, NULL, NULL);
+    // brl+hinky
+	// the one and only call to obfuscate the handshake
+    if(ssh->obfuscate) 
+       obfuscate_output(data, len);
+	// end b+h
+
     return sk_write(ssh->s, (char *)data, len);
 }
+
+// brl + hinky
+static int s_write_seed(Ssh ssh)
+{
+	void *our_seed;
+	int ret;
+	oblen=0;
+	our_seed=NULL;
+	our_seed=obfuscate_send_seed(); // from obfuscated-openssh
+	if ( our_seed==NULL ) bombout(("Hash length too small!"));
+	ret=sk_write(ssh->s, (char *)our_seed, oblen);
+	free(our_seed);
+	return ret;
+}
+// end b+h
 
 static void s_wrpkt(Ssh ssh, struct Packet *pkt)
 {
@@ -2601,6 +2632,7 @@ static void ssh_send_verstring(Ssh ssh, char *svers)
 
     logeventf(ssh, "We claim version: %.*s",
 	      strcspn(verstring, "\015\012"), verstring);
+	ssh->obfuscate = ssh->cfg.obfuscate;
     s_write(ssh, verstring, strlen(verstring));
     sfree(verstring);
 }
@@ -2678,6 +2710,14 @@ static int do_ssh_init(Ssh ssh, unsigned char c)
 	bombout(("SSH protocol version 1 required by user but not provided by server"));
 	crStop(0);
     }
+
+	// brl+hinky
+    if (ssh->cfg.sshprot <= 1 && ssh->cfg.obfuscate) {
+	bombout(("Obfuscation not supported in SSH protocol version 1"));
+	crStop(0);
+    }
+	// end b+h
+
     if (ssh->cfg.sshprot == 3 && !s->proto2) {
 	bombout(("SSH protocol version 2 required by user but not provided by server"));
 	crStop(0);
@@ -2693,6 +2733,14 @@ static int do_ssh_init(Ssh ssh, unsigned char c)
     /* Send the version string, if we haven't already */
     if (ssh->cfg.sshprot != 3)
 	ssh_send_verstring(ssh, s->version);
+	/* the above hits on:
+	 * "1 only" (0)
+	 * "1"      (1)
+	 * "2"      (2)
+     * ... but not
+	 * "2 only" (3) <-problem child
+	 * ... sending verstring obfuscated perfectly
+	 */
 
     if (ssh->version == 2) {
 	size_t len;
@@ -2777,7 +2825,12 @@ static void ssh_set_frozen(Ssh ssh, int frozen)
 }
 
 static void ssh_gotdata(Ssh ssh, unsigned char *data, int datalen)
-{
+{   
+    // brl+hinky
+	// the one and only call to de-obfuscate the handshake
+    if(ssh->obfuscate) obfuscate_input(data, datalen);
+    // end b+h 
+
     /* Log raw data, if we're in that mode. */
     if (ssh->logctx)
 	log_packet(ssh->logctx, PKT_INCOMING, -1, NULL, data, datalen,
@@ -3036,7 +3089,7 @@ static const char *connect_to_host(Ssh ssh, char *host, int port,
 	ssh->version = 1;
     if (ssh->cfg.sshprot == 3) {
 	ssh->version = 2;
-	ssh_send_verstring(ssh, NULL);
+	ssh_send_verstring(ssh, NULL); // this is where "2 only" FUCKS UP (???)
     }
 
     /*
@@ -6318,8 +6371,14 @@ static int do_ssh2_transport(Ssh ssh, void *vin, int inlen,
 
     /*
      * Otherwise, schedule a timer for our next rekey.
-     */
-    ssh->kex_in_progress = FALSE;
+     *
+     * ssh->kex_in_progress = FALSE;
+	 */
+
+    // brl+simon+hinky
+    ssh->obfuscate = ssh->kex_in_progress = FALSE;
+    // end b+s+h
+	
     ssh->last_rekey = GETTICKCOUNT();
     if (ssh->cfg.ssh_rekey_time != 0)
 	ssh->next_rekey = schedule_timer(ssh->cfg.ssh_rekey_time*60*TICKSPERSEC,
@@ -8300,6 +8359,8 @@ static void do_ssh2_authconn(Ssh ssh, unsigned char *in, int inlen,
 		     * user without actually issuing any prompts).
 		     * Give up on it entirely. */
 		    s->gotit = TRUE;
+		    if (pktin->type == SSH2_MSG_USERAUTH_FAILURE)
+			logevent("Keyboard-interactive authentication refused");
 		    s->type = AUTH_TYPE_KEYBOARD_INTERACTIVE_QUIET;
 		    s->kbd_inter_refused = TRUE; /* don't try it again */
 		    continue;
@@ -9403,6 +9464,9 @@ static const char *ssh_init(void *frontend_handle, void **backend_handle,
 	ssh->deferred_data_size = 0L;
     ssh->max_data_size = parse_blocksize(ssh->cfg.ssh_rekey_data);
     ssh->kex_in_progress = FALSE;
+	// hinky
+	ssh->obfuscate = ssh->cfg.obfuscate;
+	if(ssh->obfuscate) ssh->cfg.sshprot=2; // WHAT A PAIN IN THE ASS
 
 #ifndef NO_GSSAPI
     ssh->gsslibs = NULL;
@@ -9411,7 +9475,12 @@ static const char *ssh_init(void *frontend_handle, void **backend_handle,
     p = connect_to_host(ssh, host, port, realhost, nodelay, keepalive);
     if (p != NULL)
 	return p;
-
+	// brl+hinky
+	if(ssh->obfuscate){
+		obfuscate_set_keyword(ssh->cfg.obfuscate_keyword);
+	    s_write_seed(ssh);
+	}
+    // end b+h
     random_ref();
 
     return NULL;

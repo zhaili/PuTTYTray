@@ -101,6 +101,10 @@
 #define WINHELP_CTX_ssh_compress "ssh.compress:config-ssh-comp"
 #define WINHELP_CTX_ssh_kexlist "ssh.kex.order:config-ssh-kex-order"
 #define WINHELP_CTX_ssh_kex_repeat "ssh.kex.repeat:config-ssh-kex-rekey"
+// brl+hinky
+#define WINHELP_CTX_obfuscate "ssh.kex.obfuscate:config-ssh-kex-obfuscate"
+#define WINHELP_CTX_obfuscate_keyword "ssh.kex.obfuscate.keyword:config-ssh-kex-obfuscate-keyword"
+// end b+h
 #define WINHELP_CTX_ssh_auth_bypass "ssh.auth.bypass:config-ssh-noauth"
 #define WINHELP_CTX_ssh_auth_banner "ssh.auth.banner:config-ssh-banner"
 #define WINHELP_CTX_ssh_auth_privkey "ssh.auth.privkey:config-ssh-privkey"

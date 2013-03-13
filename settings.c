@@ -417,8 +417,10 @@ void save_open_settings(void *sesskey, Config *cfg)
     write_setting_filename(sesskey, "GSSCustom", cfg->ssh_gss_custom);
 #endif
     write_setting_i(sesskey, "SshNoShell", cfg->ssh_no_shell);
-    write_setting_i(sesskey, "SshProt", cfg->sshprot);
-    write_setting_s(sesskey, "LogHost", cfg->loghost);
+	// more annoying Hinky Hack
+	write_setting_i(sesskey, "SshProt", cfg->obfuscate ? 2 : cfg->sshprot);
+    // end HH
+	write_setting_s(sesskey, "LogHost", cfg->loghost);
     write_setting_i(sesskey, "SSH2DES", cfg->ssh2_des_cbc);
     write_setting_filename(sesskey, "PublicKeyFile", cfg->keyfile);
     write_setting_s(sesskey, "RemoteCommand", cfg->remote_cmd);
@@ -592,6 +594,10 @@ void save_open_settings(void *sesskey, Config *cfg)
     write_setting_i(sesskey, "SerialParity", cfg->serparity);
     write_setting_i(sesskey, "SerialFlowControl", cfg->serflow);
     write_setting_s(sesskey, "WindowClass", cfg->winclass);
+    // brl+hinky
+    write_setting_i(sesskey, "SSHObfuscate", cfg->obfuscate);
+    write_setting_s(sesskey, "SSHObfuscatedPassword", cfg->obfuscate_keyword);
+    // end b+h
 
 	/*
 	 * HACK: PuttyTray / Nutty
@@ -612,6 +618,16 @@ void load_settings(char *section, Config * cfg)
     sesskey = open_settings_r(section);
     load_open_settings(sesskey, cfg);
     close_settings_r(sesskey);
+
+	// ANNOYING HINKY HACK!!!
+	// no clue how to fix if "2 only" is selected
+	// on SSH page option "Preferred SSH protocol",
+	// so we knock SshProt down to 2 (from 3) if
+	// obfuscation is desired.
+	//
+	// PuTTY 0.60 was different!
+	if(cfg->obfuscate && cfg->sshprot==3) cfg->sshprot=2;
+	// END HINKY HACK!!! 
 
     if (cfg_launchable(cfg))
         add_session_to_jumplist(section);
@@ -1009,7 +1025,10 @@ void load_open_settings(void *sesskey, Config *cfg)
     gppi(sesskey, "SerialParity", SER_PAR_NONE, &cfg->serparity);
     gppi(sesskey, "SerialFlowControl", SER_FLOW_XONXOFF, &cfg->serflow);
     gpps(sesskey, "WindowClass", "", cfg->winclass, sizeof(cfg->winclass));
-
+    // brl+hinky
+	gppi(sesskey, "SSHObfuscate", 0, &cfg->obfuscate);
+	gpps(sesskey, "SSHObfuscatedPassword", "", cfg->obfuscate_keyword, sizeof(cfg->obfuscate_keyword));
+	// end b+h
 	/*
 	 * HACK: PuttyTray / Nutty
 	 * Hyperlink stuff: Save hyperlink settings

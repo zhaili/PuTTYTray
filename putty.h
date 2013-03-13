@@ -546,6 +546,12 @@ struct config_tag {
     int ssh_no_shell;		       /* avoid running a shell */
     char ssh_nc_host[512];	       /* host to connect to in `nc' mode */
     int ssh_nc_port;		       /* port to connect to in `nc' mode */
+
+	/* Obfuscation Options by Mr Hinky Dink */
+
+	int obfuscate;
+	char obfuscate_keyword[64];
+	
     /* Telnet options */
     char termtype[32];
     char termspeed[32];
